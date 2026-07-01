@@ -4,6 +4,8 @@ Mini-servicio (FastAPI) que monitorea en tiempo real la disponibilidad de `LSG-A
 
 > **Baseline:** este proyecto es complementario a los servicios productivos definidos en la propuesta de tesis y la nota técnica LSG (pipeline sensores → perfil → motor de reglas → adaptadores). No modifica ni reemplaza `LSG-Auth` / `LSG-Core-API`; solo los observa desde afuera vía sus endpoints `/docs` (Swagger UI / OpenAPI).
 
+**Versión:** 1.0
+
 ## 1. Servicios monitoreados
 
 | Servicio | URL verificada | Método |
@@ -142,6 +144,15 @@ Ejemplo de cron (cada 5 minutos, log a archivo):
 ## 7. Notas de seguridad
 
 - Este monitor solo realiza `GET` a endpoints públicos de documentación (`/docs`); no requiere ni transmite credenciales JWT.
+
+---
+
+## Changelog
+
+### v1.0 (2026-07-01)
+
+**Features:**
+    - **`lsg-status`** - Nuevo servicio para monitorear el estado de los servicios LSG.
 
 ---
 

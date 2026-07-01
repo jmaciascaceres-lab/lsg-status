@@ -1,5 +1,5 @@
 """
-LSG Status — semáforo de disponibilidad para los servicios LSG-Auth y LSG-Core-API.
+LSG Status - semáforo de disponibilidad para los servicios LSG-Auth y LSG-Core-API.
 
 Consulta periódicamente los endpoints /docs (OpenAPI/Swagger UI) de cada servicio
 y expone:
@@ -7,8 +7,7 @@ y expone:
   - GET /api/status  -> JSON con el estado de cada servicio
   - GET /healthz     -> health check del propio monitor
 
-Diseñado para integrarse al ecosistema LSG (FastAPI + Docker), pudiendo
-desplegarse junto a LSG-Auth y LSG-Core-API vía docker-compose.
+Diseñado para integrarse al ecosistema LSG (FastAPI + Docker), pudiendo desplegarse junto a LSG-Auth y LSG-Core-API vía docker-compose.
 """
 
 import os
@@ -112,10 +111,8 @@ async def check_all_services() -> list[dict]:
 
 async def maybe_log_to_db(results: list[dict]) -> None:
     """
-    Punto de extensión: si LOG_TO_DB=true, persistir cada chequeo en la tabla
-    `interaction_logs` reutilizando la convención experiment_tag + JSONB.
-    No implementado por defecto para mantener este monitor sin dependencias
-    de base de datos; ver README para el patch SQL sugerido.
+    Punto de extensión: si LOG_TO_DB=true, persistir cada chequeo en la tabla `interaction_logs` reutilizando la convención experiment_tag + JSONB.
+    No implementado por defecto para mantener este monitor sin dependencias de base de datos; ver README para el patch SQL sugerido.
     """
     if not LOG_TO_DB:
         return

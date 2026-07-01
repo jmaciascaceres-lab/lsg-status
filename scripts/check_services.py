@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-check_services.py — chequeo standalone (sin FastAPI) de los servicios LSG.
+check_services.py - chequeo standalone (sin FastAPI) de los servicios LSG.
 
 Pensado para ejecutarse vía cron, systemd timer, o como tarea Ansible
 (módulo `script` o `command`), sin levantar el dashboard web.
