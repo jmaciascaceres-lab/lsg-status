@@ -126,33 +126,7 @@ Ejemplo de cron (cada 5 minutos, log a archivo):
 */5 * * * * /usr/bin/python3 /opt/lsg-status/scripts/check_services.py --json >> /var/log/lsg-status.log 2>&1
 ```
 
-## 6. Integración opcional con `interaction_logs` (FONDECYT)
-
-Si se desea conservar el historial de disponibilidad junto con el resto de métricas del proyecto (manteniendo la convención `experiment_tag` + columna JSONB), se sugiere el siguiente patch SQL para reutilizar el esquema existente sin crear una tabla nueva:
-
-```sql
--- Patch sugerido: no crea tabla nueva, reutiliza interaction_logs.
--- Verificar que experiment_tag y la columna JSONB de métricas existan
--- antes de aplicar (ajustar nombre de columna JSONB según esquema real).
-
-INSERT INTO interaction_logs (experiment_tag, event_type, metrics, created_at)
-VALUES (
-    'lsg-status-monitor-v1',
-    'service_status_check',
-    '{
-        "service_id": "lsg-auth",
-        "status": "green",
-        "status_code": 200,
-        "latency_ms": 142.3,
-        "error": null
-    }'::jsonb,
-    NOW()
-);
-```
-
-El punto de extensión está dejado listo (pero deshabilitado por defecto, `LOG_TO_DB=false`) en `app/main.py`, función `maybe_log_to_db()`. Activar solo si se cuenta con acceso de escritura a la base de datos compartida del proyecto y tras validar el patch con el equipo de datos.
-
-## 7. Alcance (MoSCoW) de esta primera versión
+## 6. Alcance (MoSCoW) de esta primera versión
 
 | Prioridad | Requisito |
 | --- | --- |
@@ -161,15 +135,13 @@ El punto de extensión está dejado listo (pero deshabilitado por defecto, `LOG_
 | **Must** | Dashboard web auto-refrescable sin dependencias externas de frontend |
 | **Should** | Script CLI standalone para cron/Ansible (sin levantar el servicio web) |
 | **Should** | Despliegue vía Docker, integrable a la red del compose principal de LSG |
-| **Could** | Persistencia de histórico en `interaction_logs` (FONDECYT) |
 | **Could** | Notificaciones (correo/Slack/Webhook) ante transición a rojo |
 | **Won't (v1)** | Autenticación/roles sobre el dashboard (asumido en red interna/VPN) |
 | **Won't (v1)** | Verificación de endpoints autenticados (más allá de `/docs`) |
 
-## 8. Notas de seguridad
+## 7. Notas de seguridad
 
 - Este monitor solo realiza `GET` a endpoints públicos de documentación (`/docs`); no requiere ni transmite credenciales JWT.
-- Si se expone el dashboard fuera de la red de DIINF-USACH, restringir acceso (reverse proxy con auth básica, IP allowlist, o VPN) para no exponer públicamente el estado interno de la infraestructura.
 
 ---
 
