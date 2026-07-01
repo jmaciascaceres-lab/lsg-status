@@ -27,9 +27,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# --------------------------------------------------------------------------
 # Configuración (vía variables de entorno, ver .env.example)
-# --------------------------------------------------------------------------
 
 SERVICES = [
     {
@@ -58,9 +56,7 @@ app = FastAPI(title="LSG Status", version="1.0.0")
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 
 
-# --------------------------------------------------------------------------
 # Lógica de chequeo
-# --------------------------------------------------------------------------
 
 async def check_service(client: httpx.AsyncClient, service: dict) -> dict:
     """Realiza un GET al endpoint /docs del servicio y clasifica su estado."""
@@ -145,9 +141,7 @@ async def maybe_log_to_db(results: list[dict]) -> None:
     pass
 
 
-# --------------------------------------------------------------------------
 # Endpoints
-# --------------------------------------------------------------------------
 
 @app.get("/api/status", response_class=JSONResponse)
 async def api_status():
