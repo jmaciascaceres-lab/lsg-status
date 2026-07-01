@@ -1,5 +1,5 @@
 """
-LSG Status - semáforo de disponibilidad para los servicios LSG-Auth y LSG-Core-API.
+LSG Status - Semáforo de disponibilidad para los servicios LSG-Auth y LSG-Core-API.
 
 Consulta periódicamente los endpoints /docs (OpenAPI/Swagger UI) de cada servicio
 y expone:
@@ -7,7 +7,8 @@ y expone:
   - GET /api/status  -> JSON con el estado de cada servicio
   - GET /healthz     -> health check del propio monitor
 
-Diseñado para integrarse al ecosistema LSG (FastAPI + Docker), pudiendo desplegarse junto a LSG-Auth y LSG-Core-API vía docker-compose.
+Diseñado para integrarse al ecosistema LSG (FastAPI + Docker), pudiendo
+desplegarse junto a LSG-Auth y LSG-Core-API vía docker-compose.
 """
 
 import os
@@ -23,6 +24,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.requests import Request
 from dotenv import load_dotenv
+
+from app.notifier import send_notification
 
 load_dotenv()
 
@@ -48,6 +51,8 @@ POLL_INTERVAL_MS = int(os.getenv("POLL_INTERVAL_MS", "15000"))
 
 LOG_TO_DB = os.getenv("LOG_TO_DB", "false").lower() == "true"
 EXPERIMENT_TAG = os.getenv("EXPERIMENT_TAG", "lsg-status-monitor-v1")
+
+NOTIFY_CONSECUTIVE_THRESHOLD = int(os.getenv("NOTIFY_CONSECUTIVE_THRESHOLD", "2"))
 
 StatusLevel = Literal["green", "yellow", "red"]
 
@@ -111,8 +116,10 @@ async def check_all_services() -> list[dict]:
 
 async def maybe_log_to_db(results: list[dict]) -> None:
     """
-    Punto de extensión: si LOG_TO_DB=true, persistir cada chequeo en la tabla `interaction_logs` reutilizando la convención experiment_tag + JSONB.
-    No implementado por defecto para mantener este monitor sin dependencias de base de datos; ver README para el patch SQL sugerido.
+    Punto de extensión: si LOG_TO_DB=true, persistir cada chequeo en la tabla
+    `interaction_logs` reutilizando la convención experiment_tag + JSONB.
+    No implementado por defecto para mantener este monitor sin dependencias
+    de base de datos; ver README para el patch SQL sugerido.
     """
     if not LOG_TO_DB:
         return
@@ -136,6 +143,77 @@ async def maybe_log_to_db(results: list[dict]) -> None:
     #         )
     #     await session.commit()
     pass
+
+
+# Notificaciones — poller en background con debounce anti-flapping
+#
+# Estado por servicio:
+#   streak_status / streak_count -> racha del último status "crudo" devuelto
+#       por check_service, usada solo para exigir NOTIFY_CONSECUTIVE_THRESHOLD
+#       chequeos seguidos antes de considerar el cambio "real" (evita ruido
+#       por un timeout aislado).
+#   notified_status -> último status por el que YA se avisó (None = verde/
+#       normal). Solo se notifica de nuevo si el status crudo, sostenido
+#       durante el umbral, difiere de notified_status. Esto cubre las 3
+#       severidades pedidas: entrada a rojo, entrada a amarillo (incluyendo
+#       escalar/desescalar entre rojo y amarillo), y recuperación a verde.
+_service_state: dict[str, dict] = {}
+
+STATUS_ICON = {"red": "🔴", "yellow": "🟡", "green": "🟢"}
+STATUS_LABEL_ES = {"red": "caído", "yellow": "degradado", "green": "operativo"}
+
+
+async def evaluate_and_notify(results: list[dict]) -> None:
+    for r in results:
+        state = _service_state.setdefault(
+            r["id"], {"streak_status": None, "streak_count": 0, "notified_status": None}
+        )
+
+        if r["status"] == state["streak_status"]:
+            state["streak_count"] += 1
+        else:
+            state["streak_status"] = r["status"]
+            state["streak_count"] = 1
+
+        sustained = state["streak_count"] >= NOTIFY_CONSECUTIVE_THRESHOLD
+        changed = r["status"] != state["notified_status"]
+
+        if not (sustained and changed):
+            continue
+
+        if r["status"] == "green":
+            if state["notified_status"] is not None:
+                await send_notification(
+                    f"{STATUS_ICON['green']} **{r['label']}** se recuperó "
+                    f"(HTTP {r['status_code']}, {r['latency_ms']} ms)\n{r['url']}"
+                )
+            state["notified_status"] = None
+        else:
+            detail = r["error"] or f"HTTP {r['status_code']} · {r['latency_ms']} ms"
+            await send_notification(
+                f"{STATUS_ICON[r['status']]} **{r['label']}** {STATUS_LABEL_ES[r['status']]} "
+                f"— {detail}\n{r['url']}"
+            )
+            state["notified_status"] = r["status"]
+
+
+async def background_poller() -> None:
+    """Loop independiente de requests HTTP entrantes: corre mientras el
+    contenedor esté vivo, sin depender de que alguien tenga el dashboard
+    abierto en el navegador."""
+    while True:
+        try:
+            results = await check_all_services()
+            await maybe_log_to_db(results)
+            await evaluate_and_notify(results)
+        except Exception as exc:  # nunca debe tumbar el loop
+            print(f"[poller] Error en ciclo de chequeo: {exc}")
+        await asyncio.sleep(POLL_INTERVAL_MS / 1000)
+
+
+@app.on_event("startup")
+async def _start_background_poller() -> None:
+    asyncio.create_task(background_poller())
 
 
 # Endpoints
