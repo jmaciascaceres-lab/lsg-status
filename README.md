@@ -138,8 +138,6 @@ Ejemplo de cron (cada 5 minutos, log a archivo):
 | **Should** | Script CLI standalone para cron/Ansible (sin levantar el servicio web) |
 | **Should** | Despliegue vía Docker, integrable a la red del compose principal de LSG |
 | **Could** | Notificaciones (correo/Slack/Webhook) ante transición a rojo |
-| **Won't (v1)** | Autenticación/roles sobre el dashboard (asumido en red interna/VPN) |
-| **Won't (v1)** | Verificación de endpoints autenticados (más allá de `/docs`) |
 
 ## 7. Notas de seguridad
 
@@ -152,7 +150,7 @@ Ejemplo de cron (cada 5 minutos, log a archivo):
 ### v1.0 (2026-07-01)
 
 **Features:**
-    - **`lsg-status`** - Nuevo servicio para monitorear el estado de los servicios LSG.
+- **`lsg-status`** - Nuevo servicio para monitorear el estado de los servicios LSG.
 
 ---
 
