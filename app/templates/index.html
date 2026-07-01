@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LSG Status — Semáforo de servicios</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card-bg: #171a21;
+    --border: #262b35;
+    --text: #e7e9ee;
+    --muted: #8b919e;
+    --green: #2ecc71;
+    --yellow: #f1c40f;
+    --red: #e74c3c;
+    --accent: #5b8def;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2.5rem 1.5rem;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  header { margin-bottom: 1.75rem; }
+  h1 { font-size: 1.5rem; margin: 0 0 0.25rem 0; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; }
+  .overall-banner {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.75rem 1rem; border-radius: 10px;
+    background: var(--card-bg); border: 1px solid var(--border);
+    margin-bottom: 1.5rem; font-size: 0.95rem;
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; }
+  .card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.25rem 1.4rem;
+  }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+  .service-name { font-weight: 600; font-size: 1.05rem; }
+  .service-url { color: var(--muted); font-size: 0.78rem; word-break: break-all; margin-top: 0.15rem; }
+  .dot {
+    width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.04);
+    transition: background-color 0.3s ease;
+  }
+  .dot.green  { background: var(--green); }
+  .dot.yellow { background: var(--yellow); }
+  .dot.red    { background: var(--red); }
+  .dot.pending { background: #3a4150; }
+  .metrics { margin-top: 1rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }
+  .metric { font-size: 0.8rem; color: var(--muted); }
+  .metric strong { display: block; color: var(--text); font-size: 1rem; font-weight: 600; }
+  .error-msg { margin-top: 0.75rem; font-size: 0.78rem; color: var(--red); }
+  footer { margin-top: 1.75rem; color: var(--muted); font-size: 0.78rem; text-align: center; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🟢 LSG Status</h1>
+      <div class="subtitle">Semáforo de disponibilidad — LSG-Auth · LSG-Core-API</div>
+    </header>
+
+    <div class="overall-banner" id="overall-banner">
+      <span class="dot pending" id="overall-dot"></span>
+      <span id="overall-text">Consultando servicios…</span>
+    </div>
+
+    <div class="grid" id="cards-grid"></div>
+
+    <footer>
+      Refresco automático cada <span id="interval-label">{{ poll_interval_ms // 1000 }}</span>s ·
+      Última actualización: <span id="last-updated">—</span>
+    </footer>
+  </div>
+
+<script>
+const POLL_INTERVAL_MS = {{ poll_interval_ms }};
+const grid = document.getElementById('cards-grid');
+const overallDot = document.getElementById('overall-dot');
+const overallText = document.getElementById('overall-text');
+const lastUpdated = document.getElementById('last-updated');
+
+const STATUS_LABEL = { green: 'Operativo', yellow: 'Degradado', red: 'Caído' };
+
+function renderCards(services) {
+  grid.innerHTML = '';
+  services.forEach(svc => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-top">
+        <div>
+          <div class="service-name">${svc.label}</div>
+          <div class="service-url"><a href="${svc.url}" target="_blank" rel="noopener">${svc.url}</a></div>
+        </div>
+        <span class="dot ${svc.status}"></span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><strong>${svc.status_code ?? '—'}</strong>HTTP status</div>
+        <div class="metric"><strong>${svc.latency_ms} ms</strong>Latencia</div>
+        <div class="metric"><strong>${STATUS_LABEL[svc.status]}</strong>Estado</div>
+      </div>
+      ${svc.error ? `<div class="error-msg">⚠ ${svc.error}</div>` : ''}
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderOverall(overall) {
+  overallDot.className = `dot ${overall}`;
+  const labels = {
+    green: 'Todos los servicios operativos',
+    yellow: 'Uno o más servicios degradados',
+    red: 'Uno o más servicios caídos',
+  };
+  overallText.textContent = labels[overall] ?? '—';
+}
+
+async function poll() {
+  try {
+    const res = await fetch('/api/status', { cache: 'no-store' });
+    const data = await res.json();
+    renderCards(data.services);
+    renderOverall(data.overall);
+    lastUpdated.textContent = new Date().toLocaleTimeString('es-CL');
+  } catch (e) {
+    overallText.textContent = 'No fue posible consultar el monitor';
+    overallDot.className = 'dot red';
+  }
+}
+
+poll();
+setInterval(poll, POLL_INTERVAL_MS);
+</script>
+</body>
+</html>
