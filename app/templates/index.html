@@ -125,7 +125,7 @@ function renderOverall(overall) {
 
 async function poll() {
   try {
-    const res = await fetch('/api/status', { cache: 'no-store' });
+    const res = await fetch('api/status', { cache: 'no-store' });
     const data = await res.json();
     renderCards(data.services);
     renderOverall(data.overall);
