@@ -116,7 +116,8 @@
       background: var(--red);
     }
 
-    .dot.disabled {
+    .dot.disabled,
+    .subdot.disabled {
       background: var(--muted);
       opacity: 0.55;
     }
@@ -173,12 +174,6 @@
       border-radius: 50%;
       flex-shrink: 0;
       box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04);
-    }
-
-    .subdot.disabled {
-      background: transparent;
-      border: 2px solid var(--muted);
-      box-shadow: none;
     }
 
     .subservices {
@@ -286,7 +281,7 @@
         <span class="dot ${svc.status}"></span>
       </div>
       <div class="metrics">
-        <div class="metric"><strong>${svc.status_code ?? '—'}</strong>HTTP status</div>
+        <div class="metric"><strong>${svc.status_code ?? '-'}</strong>HTTP status</div>
         <div class="metric"><strong>${svc.latency_ms} ms</strong>Latencia</div>
         <div class="metric"><strong>${STATUS_LABEL[svc.status]}</strong>Estado</div>
       </div>
@@ -313,7 +308,7 @@
           <div>
             <div class="service-name" style="font-size:0.88rem;">${svc.label}</div>
             <div class="service-url"><a href="${svc.url}" target="_blank" rel="noopener">${svc.url}</a></div>
-            <div class="service-url">${svc.status === 'disabled' ? 'Sin endpoint verificable aún — pendiente de integración' : `${svc.status_code ?? '—'} · ${svc.latency_ms} ms${svc.error ? ` · ⚠ ${svc.error}` : ''}`}</div>
+            <div class="service-url">${svc.status === 'disabled' ? 'Sin endpoint verificable aún - pendiente de integración' : `${svc.status_code ?? '-'} · ${svc.latency_ms} ms${svc.error ? ` · ⚠ ${svc.error}` : ''}`}</div>
           </div>
         </div>`)
           .join('');
@@ -342,7 +337,7 @@
         red: 'Uno o más servicios caídos',
       };
       const icons = { green: '🟢', yellow: '🟡', red: '🔴' };
-      overallText.textContent = labels[overall] ?? '—';
+      overallText.textContent = labels[overall] ?? '-';
       titleIcon.textContent = icons[overall] ?? '⚪';
     }
 
