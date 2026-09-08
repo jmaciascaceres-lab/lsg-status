@@ -43,6 +43,69 @@ SERVICES = [
     },
 ]
 
+# Grupo "Vitrina" (LSG-Web): mismo listado que app/main.py, para que cron/Ansible
+# también cubran estos servicios. vitrina-cloud-mysql queda fuera (no expone HTTP).
+VITRINA_GROUP_LABEL = os.getenv("VITRINA_GROUP_LABEL", "Vitrina (LSG-Web)")
+
+VITRINA_SERVICES = [
+    {
+        "id": "vitrina-difusion",
+        "label": os.getenv("VITRINA_DIFUSION_LABEL", "Difusion"),
+        "url": os.getenv("VITRINA_DIFUSION_URL", "https://vitrina.diinf.usach.cl/home/"),
+        "group": VITRINA_GROUP_LABEL,
+    },
+    {
+        "id": "vitrina-frontend",
+        "label": os.getenv("VITRINA_FRONTEND_LABEL", "Vitrina Frontend"),
+        "url": os.getenv("VITRINA_FRONTEND_URL", "https://vitrina.diinf.usach.cl/vitrina/"),
+        "group": VITRINA_GROUP_LABEL,
+    },
+    {
+        "id": "vitrina-api",
+        "label": os.getenv("VITRINA_API_LABEL", "Vitrina API"),
+        "url": os.getenv("VITRINA_API_DOCS_URL", "https://vitrina.diinf.usach.cl/vitrina/api/v1/docs"),
+        "group": VITRINA_GROUP_LABEL,
+    },
+    {
+        "id": "vitrina-auth",
+        "label": os.getenv("VITRINA_AUTH_LABEL", "Auth (Vitrina)"),
+        "url": os.getenv("VITRINA_AUTH_DOCS_URL", "https://vitrina.diinf.usach.cl/auth/api/v1/docs"),
+        "group": VITRINA_GROUP_LABEL,
+    },
+    {
+        "id": "vitrina-cloud-website",
+        "label": os.getenv("VITRINA_CLOUD_WEBSITE_LABEL", "Cloud Website"),
+        "url": os.getenv("VITRINA_CLOUD_WEBSITE_URL", "https://vitrina.diinf.usach.cl/cloud/"),
+        "group": VITRINA_GROUP_LABEL,
+    },
+    {
+        "id": "vitrina-cloud-api-get",
+        "label": os.getenv("VITRINA_CLOUD_API_GET_LABEL", "Cloud API GET"),
+        "url": os.getenv("VITRINA_CLOUD_API_GET_HEALTH_URL", "https://vitrina.diinf.usach.cl/cloud/api/get/health"),
+        "group": VITRINA_GROUP_LABEL,
+    },
+    {
+        "id": "vitrina-cloud-api-post",
+        "label": os.getenv("VITRINA_CLOUD_API_POST_LABEL", "Cloud API POST"),
+        "url": os.getenv("VITRINA_CLOUD_API_POST_HEALTH_URL", "https://vitrina.diinf.usach.cl/cloud/api/post/health"),
+        "group": VITRINA_GROUP_LABEL,
+    },
+    {
+        "id": "vitrina-cloud-attributes",
+        "label": os.getenv("VITRINA_CLOUD_ATTRIBUTES_LABEL", "Cloud Attributes"),
+        "url": os.getenv("VITRINA_CLOUD_ATTRIBUTES_HEALTH_URL", "https://vitrina.diinf.usach.cl/cloud/api/attributes/health"),
+        "group": VITRINA_GROUP_LABEL,
+    },
+    {
+        "id": "vitrina-cloud-user-mgmt",
+        "label": os.getenv("VITRINA_CLOUD_USER_MGMT_LABEL", "Cloud User Mgmt"),
+        "url": os.getenv("VITRINA_CLOUD_USER_MGMT_HEALTH_URL", "https://vitrina.diinf.usach.cl/cloud/api/users/health"),
+        "group": VITRINA_GROUP_LABEL,
+    },
+]
+
+SERVICES = SERVICES + VITRINA_SERVICES
+
 LATENCY_WARN_MS = float(os.getenv("LATENCY_WARN_MS", "300"))
 LATENCY_CRIT_MS = float(os.getenv("LATENCY_CRIT_MS", "1000"))
 TIMEOUT_S = float(os.getenv("REQUEST_TIMEOUT_S", "5"))
@@ -105,11 +168,37 @@ def main():
             print(json.dumps({"overall": worst, "services": results}, indent=2, ensure_ascii=False))
         else:
             icons = {"green": "🟢", "yellow": "🟡", "red": "🔴"}
-            for r in results:
-                print(f"{icons[r['status']]} {r['label']:<14} "
+
+            def print_row(r, indent=""):
+                print(f"{indent}{icons[r['status']]} {r['label']:<14} "
                       f"HTTP {str(r['status_code']):<4} "
                       f"{r['latency_ms']:>7.1f} ms  {r['url']}"
                       + (f"  -- {r['error']}" if r["error"] else ""))
+
+            # Servicios sin grupo: una línea cada uno (comportamiento original).
+            for r in results:
+                if not r.get("group"):
+                    print_row(r)
+
+            # Servicios agrupados (p.ej. Vitrina/LSG-Web): encabezado con el peor
+            # estado del grupo y cada sub-servicio indentado debajo.
+            grouped: dict[str, list[dict]] = {}
+            for r in results:
+                if r.get("group"):
+                    grouped.setdefault(r["group"], []).append(r)
+
+            for group_label, members in grouped.items():
+                group_status = "green"
+                for m in members:
+                    if m["status"] == "red":
+                        group_status = "red"
+                        break
+                    if m["status"] == "yellow":
+                        group_status = "yellow"
+                print(f"\n{icons[group_status]} {group_label}")
+                for m in members:
+                    print_row(m, indent="   ")
+
             print(f"\nEstado general: {icons[worst]} {worst.upper()}")
 
     sys.exit({"green": 0, "yellow": 1, "red": 2}[worst])

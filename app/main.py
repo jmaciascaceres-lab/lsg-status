@@ -49,6 +49,72 @@ SERVICES = [
     },
 ]
 
+# Grupo "Vitrina" (LSG-Web, https://github.com/BlendedGames-bGames/LSG-Web): varios
+# microservicios detrás de un único nginx en vitrina.diinf.usach.cl. Se agrupan en el
+# dashboard bajo un solo semáforo con sub-círculos, en vez de una tarjeta por servicio.
+# Nota: vitrina-cloud-mysql (contenedor de BD) queda fuera de alcance: no expone HTTP.
+VITRINA_GROUP_ID = "vitrina"
+VITRINA_GROUP_LABEL = os.getenv("VITRINA_GROUP_LABEL", "Vitrina (LSG-Web)")
+
+VITRINA_SERVICES = [
+    {
+        "id": "vitrina-difusion",
+        "label": os.getenv("VITRINA_DIFUSION_LABEL", "Difusion"),
+        "url": os.getenv("VITRINA_DIFUSION_URL", "https://vitrina.diinf.usach.cl/home/"),
+        "group": VITRINA_GROUP_ID,
+    },
+    {
+        "id": "vitrina-frontend",
+        "label": os.getenv("VITRINA_FRONTEND_LABEL", "Vitrina Frontend"),
+        "url": os.getenv("VITRINA_FRONTEND_URL", "https://vitrina.diinf.usach.cl/vitrina/"),
+        "group": VITRINA_GROUP_ID,
+    },
+    {
+        "id": "vitrina-api",
+        "label": os.getenv("VITRINA_API_LABEL", "Vitrina API"),
+        "url": os.getenv("VITRINA_API_DOCS_URL", "https://vitrina.diinf.usach.cl/vitrina/api/v1/docs"),
+        "group": VITRINA_GROUP_ID,
+    },
+    {
+        "id": "vitrina-auth",
+        "label": os.getenv("VITRINA_AUTH_LABEL", "Auth (Vitrina)"),
+        "url": os.getenv("VITRINA_AUTH_DOCS_URL", "https://vitrina.diinf.usach.cl/auth/api/v1/docs"),
+        "group": VITRINA_GROUP_ID,
+    },
+    {
+        "id": "vitrina-cloud-website",
+        "label": os.getenv("VITRINA_CLOUD_WEBSITE_LABEL", "Cloud Website"),
+        "url": os.getenv("VITRINA_CLOUD_WEBSITE_URL", "https://vitrina.diinf.usach.cl/cloud/"),
+        "group": VITRINA_GROUP_ID,
+    },
+    {
+        "id": "vitrina-cloud-api-get",
+        "label": os.getenv("VITRINA_CLOUD_API_GET_LABEL", "Cloud API GET"),
+        "url": os.getenv("VITRINA_CLOUD_API_GET_HEALTH_URL", "https://vitrina.diinf.usach.cl/cloud/api/get/health"),
+        "group": VITRINA_GROUP_ID,
+    },
+    {
+        "id": "vitrina-cloud-api-post",
+        "label": os.getenv("VITRINA_CLOUD_API_POST_LABEL", "Cloud API POST"),
+        "url": os.getenv("VITRINA_CLOUD_API_POST_HEALTH_URL", "https://vitrina.diinf.usach.cl/cloud/api/post/health"),
+        "group": VITRINA_GROUP_ID,
+    },
+    {
+        "id": "vitrina-cloud-attributes",
+        "label": os.getenv("VITRINA_CLOUD_ATTRIBUTES_LABEL", "Cloud Attributes"),
+        "url": os.getenv("VITRINA_CLOUD_ATTRIBUTES_HEALTH_URL", "https://vitrina.diinf.usach.cl/cloud/api/attributes/health"),
+        "group": VITRINA_GROUP_ID,
+    },
+    {
+        "id": "vitrina-cloud-user-mgmt",
+        "label": os.getenv("VITRINA_CLOUD_USER_MGMT_LABEL", "Cloud User Mgmt"),
+        "url": os.getenv("VITRINA_CLOUD_USER_MGMT_HEALTH_URL", "https://vitrina.diinf.usach.cl/cloud/api/users/health"),
+        "group": VITRINA_GROUP_ID,
+    },
+]
+
+SERVICES = SERVICES + VITRINA_SERVICES
+
 LATENCY_WARN_MS = float(os.getenv("LATENCY_WARN_MS", "300"))
 LATENCY_CRIT_MS = float(os.getenv("LATENCY_CRIT_MS", "1000"))
 REQUEST_TIMEOUT_S = float(os.getenv("REQUEST_TIMEOUT_S", "5"))
@@ -103,12 +169,48 @@ async def check_service(client: httpx.AsyncClient, service: dict) -> dict:
         "id": service["id"],
         "label": service["label"],
         "url": service["url"],
+        "group": service.get("group"),
         "status": status_level,
         "status_code": status_code,
         "latency_ms": round(latency_ms, 1),
         "error": error_message,
         "checked_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+def worst_status(statuses: list[StatusLevel]) -> StatusLevel:
+    """Devuelve el peor estado de una lista (rojo > amarillo > verde)."""
+    if any(s == "red" for s in statuses):
+        return "red"
+    if any(s == "yellow" for s in statuses):
+        return "yellow"
+    return "green"
+
+
+def build_groups(results: list[dict]) -> list[dict]:
+    """
+    Agrupa los resultados que tienen 'group' asignado (p.ej. los servicios de
+    Vitrina/LSG-Web) en bloques con un semáforo agregado y sus sub-servicios,
+    para que el dashboard los muestre como un solo card con sub-círculos en
+    vez de una tarjeta por servicio.
+    """
+    group_labels = {VITRINA_GROUP_ID: VITRINA_GROUP_LABEL}
+    groups: dict[str, list[dict]] = {}
+    for r in results:
+        gid = r.get("group")
+        if not gid:
+            continue
+        groups.setdefault(gid, []).append(r)
+
+    return [
+        {
+            "id": gid,
+            "label": group_labels.get(gid, gid),
+            "status": worst_status([svc["status"] for svc in members]),
+            "services": members,
+        }
+        for gid, members in groups.items()
+    ]
 
 
 async def check_all_services() -> list[dict]:
@@ -227,14 +329,12 @@ async def _start_background_poller() -> None:
 async def api_status():
     results = await check_all_services()
     await maybe_log_to_db(results)
-    overall: StatusLevel = "green"
-    if any(r["status"] == "red" for r in results):
-        overall = "red"
-    elif any(r["status"] == "yellow" for r in results):
-        overall = "yellow"
+    overall: StatusLevel = worst_status([r["status"] for r in results])
+    groups = build_groups(results)
     return {
         "overall": overall,
         "services": results,
+        "groups": groups,
         "poll_interval_ms": POLL_INTERVAL_MS,
     }
 

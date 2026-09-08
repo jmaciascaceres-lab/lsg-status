@@ -120,6 +120,80 @@
       background: #3a4150;
     }
 
+    .group-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem 1.4rem;
+      grid-column: 1 / -1;
+    }
+
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .group-header .service-name {
+      flex: 1;
+    }
+
+    .group-count {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .group-caret {
+      color: var(--muted);
+      font-size: 0.75rem;
+      transition: transform 0.2s ease;
+    }
+
+    .group-card.expanded .group-caret {
+      transform: rotate(90deg);
+    }
+
+    .subdots {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+    }
+
+    .subdot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04);
+    }
+
+    .subservices {
+      display: none;
+      margin-top: 1rem;
+      border-top: 1px solid var(--border);
+      padding-top: 0.9rem;
+    }
+
+    .group-card.expanded .subservices {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .subservice-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      font-size: 0.82rem;
+    }
+
+    .subservice-row .service-url {
+      font-size: 0.72rem;
+    }
+
     .metrics {
       margin-top: 1rem;
       display: flex;
@@ -162,7 +236,7 @@
   <div class="wrap">
     <header>
       <h1><span id="title-icon">⚪</span> LSG Status</h1>
-      <div class="subtitle">Semáforo de disponibilidad - LSG-Auth | LSG-Core-API | LSG-Estudio</div>
+      <div class="subtitle">Semáforo de disponibilidad - LSG-Auth | LSG-Core-API | LSG-Estudio | Vitrina (LSG-Web)</div>
     </header>
 
     <div class="overall-banner" id="overall-banner">
@@ -189,7 +263,6 @@
     const STATUS_LABEL = { green: 'Operativo', yellow: 'Degradado', red: 'Caído' };
 
     function renderCards(services) {
-      grid.innerHTML = '';
       services.forEach(svc => {
         const card = document.createElement('div');
         card.className = 'card';
@@ -212,6 +285,44 @@
       });
     }
 
+    // Grupos (p.ej. Vitrina/LSG-Web): un solo card con semáforo agregado y un
+    // sub-círculo por servicio. Al hacer clic se expande el detalle de cada uno,
+    // igual que las tarjetas individuales, sin ocupar una tarjeta por servicio.
+    function renderGroups(groups) {
+      groups.forEach(group => {
+        const card = document.createElement('div');
+        card.className = 'group-card';
+        const subdots = group.services
+          .map(svc => `<span class="subdot ${svc.status}" title="${svc.label}: ${STATUS_LABEL[svc.status]}"></span>`)
+          .join('');
+        const subrows = group.services
+          .map(svc => `
+        <div class="subservice-row">
+          <span class="dot ${svc.status}" style="width:12px;height:12px;margin-top:2px;"></span>
+          <div>
+            <div class="service-name" style="font-size:0.88rem;">${svc.label}</div>
+            <div class="service-url"><a href="${svc.url}" target="_blank" rel="noopener">${svc.url}</a></div>
+            <div class="service-url">${svc.status_code ?? '—'} · ${svc.latency_ms} ms${svc.error ? ` · ⚠ ${svc.error}` : ''}</div>
+          </div>
+        </div>`)
+          .join('');
+        card.innerHTML = `
+      <div class="group-header">
+        <span class="dot ${group.status}"></span>
+        <div class="service-name">${group.label}</div>
+        <span class="group-count">${group.services.length} servicios</span>
+        <span class="group-caret">▶</span>
+      </div>
+      <div class="subdots">${subdots}</div>
+      <div class="subservices">${subrows}</div>
+    `;
+        card.querySelector('.group-header').addEventListener('click', () => {
+          card.classList.toggle('expanded');
+        });
+        grid.appendChild(card);
+      });
+    }
+
     function renderOverall(overall) {
       overallDot.className = `dot ${overall}`;
       const labels = {
@@ -228,7 +339,10 @@
       try {
         const res = await fetch('api/status', { cache: 'no-store' });
         const data = await res.json();
-        renderCards(data.services);
+        grid.innerHTML = '';
+        const ungrouped = data.services.filter(svc => !svc.group);
+        renderCards(ungrouped);
+        renderGroups(data.groups || []);
         renderOverall(data.overall);
         lastUpdated.textContent = new Date().toLocaleTimeString('es-CL');
       } catch (e) {

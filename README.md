@@ -4,7 +4,7 @@ Mini-servicio (FastAPI) que monitorea en tiempo real la disponibilidad de `LSG-A
 
 > **Baseline:** este proyecto es complementario a los servicios productivos definidos en la propuesta de tesis y la nota técnica LSG (pipeline sensores → perfil → motor de reglas → adaptadores). No modifica ni reemplaza `LSG-Auth` / `LSG-Core-API`; solo los observa desde afuera vía sus endpoints `/docs` (Swagger UI / OpenAPI).
 
-**Versión:** 1.1
+**Versión:** 1.2
 
 ## 1. Servicios monitoreados
 
@@ -12,7 +12,34 @@ Mini-servicio (FastAPI) que monitorea en tiempo real la disponibilidad de `LSG-A
 | --- | --- | --- |
 | LSG-Auth | `https://lsg.diinf.usach.cl/lsg-auth/docs` | `GET` |
 | LSG-Core-API | `https://lsg.diinf.usach.cl/lsg-core-api/docs` | `GET` |
+| LSG-Core-API | `https://lsg.diinf.usach.cl/lsg-core-api/docs` | `GET` |
 | LSG-Estudio | `https://lsg.diinf.usach.cl/lsg-estudio/` | `GET` |
+
+### Grupo Vitrina ([LSG-Web](https://github.com/BlendedGames-bGames/LSG-Web))
+
+Los microservicios detrás del nginx de `vitrina.diinf.usach.cl` se muestran agrupados
+en el dashboard bajo un solo semáforo con sub-círculos (uno por servicio), en vez de
+una tarjeta por servicio. El JSON de `/api/status` conserva la lista plana completa en
+`services` (compatibilidad con scripts/Ansible existentes) y agrega un bloque `groups`
+con el estado agregado (peor caso) de cada grupo.
+
+| Servicio | URL verificada | Método |
+| --- | --- | --- |
+| Difusion | `https://vitrina.diinf.usach.cl/home/` | `GET` |
+| Vitrina Frontend | `https://vitrina.diinf.usach.cl/vitrina/` | `GET` |
+| Vitrina API | `https://vitrina.diinf.usach.cl/vitrina/api/v1/docs` | `GET` |
+| Auth (Vitrina) | `https://vitrina.diinf.usach.cl/auth/api/v1/docs` | `GET` |
+| Cloud Website | `https://vitrina.diinf.usach.cl/cloud/` | `GET` |
+| Cloud API GET | `https://vitrina.diinf.usach.cl/cloud/api/get/health` | `GET` |
+| Cloud API POST | `https://vitrina.diinf.usach.cl/cloud/api/post/health` | `GET` |
+| Cloud Attributes | `https://vitrina.diinf.usach.cl/cloud/api/attributes/health` | `GET` |
+| Cloud User Mgmt | `https://vitrina.diinf.usach.cl/cloud/api/users/health` | `GET` |
+
+> **Nota:** `vitrina-cloud-mysql` queda fuera de alcance: es un contenedor de base de
+> datos y no expone un endpoint HTTP verificable. Las rutas anteriores se verificaron
+> contra el código fuente real de `lsg-auth-nest`, `lsg-vitrina-api`, `lsg-cloud-mod` y
+> `deploy/diinf/ansible/playbooks/deploy_diinf.yml` de LSG-Web (prefijos de nginx y
+> puertos), no son una suposición.
 
 Criterio de semáforo (configurable vía `.env`):
 
@@ -81,6 +108,7 @@ Ejemplo de respuesta de `/api/status`:
       "id": "lsg-auth",
       "label": "LSG-Auth",
       "url": "https://lsg.diinf.usach.cl/lsg-auth/docs",
+      "group": null,
       "status": "green",
       "status_code": 200,
       "latency_ms": 142.3,
@@ -91,6 +119,7 @@ Ejemplo de respuesta de `/api/status`:
       "id": "lsg-core-api",
       "label": "LSG-Core-API",
       "url": "https://lsg.diinf.usach.cl/lsg-core-api/docs",
+      "group": null,
       "status": "green",
       "status_code": 200,
       "latency_ms": 98.7,
@@ -101,6 +130,7 @@ Ejemplo de respuesta de `/api/status`:
       "id": "lsg-estudio",
       "label": "LSG-Estudio",
       "url": "https://lsg.diinf.usach.cl/lsg-estudio/",
+      "group": null,
       "status": "green",
       "status_code": 200,
       "latency_ms": 98.7,
@@ -146,6 +176,7 @@ Ejemplo de cron (cada 5 minutos, log a archivo):
 | **Must** | Chequear disponibilidad de `/docs` de LSG-Auth y LSG-Core-API |
 | **Must** | Clasificar estado en verde/amarillo/rojo según código HTTP y latencia |
 | **Must** | Dashboard web auto-refrescable sin dependencias externas de frontend |
+| **Must** | Agrupar los servicios de Vitrina (LSG-Web) bajo un semáforo con sub-círculos |
 | **Should** | Script CLI standalone para cron/Ansible (sin levantar el servicio web) |
 | **Should** | Despliegue vía Docker, integrable a la red del compose principal de LSG |
 | **Could** | Notificaciones (correo/Slack/Webhook) ante transición a rojo |
@@ -167,6 +198,11 @@ Ejemplo de cron (cada 5 minutos, log a archivo):
 
 **Features:**
 - **`lsg-status`** - Nuevo servicio para monitorear el estado de los servicios LSG.
+
+### v1.2 (2026-09-08)
+
+**Features:**
+- **`lsg-status`** - Se agregó el servicio Vitrina (LSG-Web) al semáforo.
 
 ---
 
