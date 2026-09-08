@@ -116,8 +116,7 @@
       background: var(--red);
     }
 
-    .dot.disabled,
-    .subdot.disabled {
+    .dot.disabled {
       background: var(--muted);
       opacity: 0.55;
     }
@@ -174,6 +173,12 @@
       border-radius: 50%;
       flex-shrink: 0;
       box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04);
+    }
+
+    .subdot.disabled {
+      background: transparent;
+      border: 2px solid var(--muted);
+      box-shadow: none;
     }
 
     .subservices {
