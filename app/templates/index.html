@@ -116,6 +116,12 @@
       background: var(--red);
     }
 
+    .dot.disabled,
+    .subdot.disabled {
+      background: var(--muted);
+      opacity: 0.55;
+    }
+
     .dot.pending {
       background: #3a4150;
     }
@@ -260,7 +266,7 @@
     const titleIcon = document.getElementById('title-icon');
     const lastUpdated = document.getElementById('last-updated');
 
-    const STATUS_LABEL = { green: 'Operativo', yellow: 'Degradado', red: 'Caído' };
+    const STATUS_LABEL = { green: 'Operativo', yellow: 'Degradado', red: 'Caído', disabled: 'Pendiente de integración' };
 
     function renderCards(services) {
       services.forEach(svc => {
@@ -302,7 +308,7 @@
           <div>
             <div class="service-name" style="font-size:0.88rem;">${svc.label}</div>
             <div class="service-url"><a href="${svc.url}" target="_blank" rel="noopener">${svc.url}</a></div>
-            <div class="service-url">${svc.status_code ?? '—'} · ${svc.latency_ms} ms${svc.error ? ` · ⚠ ${svc.error}` : ''}</div>
+            <div class="service-url">${svc.status === 'disabled' ? 'Sin endpoint verificable aún — pendiente de integración' : `${svc.status_code ?? '—'} · ${svc.latency_ms} ms${svc.error ? ` · ⚠ ${svc.error}` : ''}`}</div>
           </div>
         </div>`)
           .join('');

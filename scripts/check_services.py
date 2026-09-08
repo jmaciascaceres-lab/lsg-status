@@ -65,12 +65,14 @@ VITRINA_SERVICES = [
         "label": os.getenv("VITRINA_API_LABEL", "Vitrina API"),
         "url": os.getenv("VITRINA_API_DOCS_URL", "https://vitrina.diinf.usach.cl/vitrina/api/v1/docs"),
         "group": VITRINA_GROUP_LABEL,
+        "enabled": os.getenv("VITRINA_API_ENABLED", "false").lower() == "true",
     },
     {
         "id": "vitrina-auth",
         "label": os.getenv("VITRINA_AUTH_LABEL", "Auth (Vitrina)"),
         "url": os.getenv("VITRINA_AUTH_DOCS_URL", "https://vitrina.diinf.usach.cl/auth/api/v1/docs"),
         "group": VITRINA_GROUP_LABEL,
+        "enabled": os.getenv("VITRINA_AUTH_ENABLED", "false").lower() == "true",
     },
     {
         "id": "vitrina-cloud-website",
@@ -112,6 +114,19 @@ TIMEOUT_S = float(os.getenv("REQUEST_TIMEOUT_S", "5"))
 
 
 def check(service: dict) -> dict:
+    if service.get("enabled") is False:
+        return {
+            "id": service["id"],
+            "label": service["label"],
+            "url": service["url"],
+            "group": service.get("group"),
+            "status": "disabled",
+            "status_code": None,
+            "latency_ms": None,
+            "error": None,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }
+
     start = time.perf_counter()
     status = "green"
     status_code = None
@@ -139,6 +154,7 @@ def check(service: dict) -> dict:
         "id": service["id"],
         "label": service["label"],
         "url": service["url"],
+        "group": service.get("group"),
         "status": status,
         "status_code": status_code,
         "latency_ms": round(latency_ms, 1),
@@ -167,12 +183,13 @@ def main():
         if args.json:
             print(json.dumps({"overall": worst, "services": results}, indent=2, ensure_ascii=False))
         else:
-            icons = {"green": "🟢", "yellow": "🟡", "red": "🔴"}
+            icons = {"green": "🟢", "yellow": "🟡", "red": "🔴", "disabled": "⚪"}
 
             def print_row(r, indent=""):
+                latency = f"{r['latency_ms']:>7.1f} ms" if r["latency_ms"] is not None else " (pendiente de integración)"
                 print(f"{indent}{icons[r['status']]} {r['label']:<14} "
                       f"HTTP {str(r['status_code']):<4} "
-                      f"{r['latency_ms']:>7.1f} ms  {r['url']}"
+                      f"{latency}  {r['url']}"
                       + (f"  -- {r['error']}" if r["error"] else ""))
 
             # Servicios sin grupo: una línea cada uno (comportamiento original).
@@ -181,20 +198,24 @@ def main():
                     print_row(r)
 
             # Servicios agrupados (p.ej. Vitrina/LSG-Web): encabezado con el peor
-            # estado del grupo y cada sub-servicio indentado debajo.
+            # estado del grupo y cada sub-servicio indentado debajo. Los 'disabled'
+            # no cuentan para el estado del grupo (ver worst_status en app/main.py).
             grouped: dict[str, list[dict]] = {}
             for r in results:
                 if r.get("group"):
                     grouped.setdefault(r["group"], []).append(r)
 
             for group_label, members in grouped.items():
-                group_status = "green"
-                for m in members:
+                active = [m for m in members if m["status"] != "disabled"]
+                group_status = "disabled"
+                for m in active:
                     if m["status"] == "red":
                         group_status = "red"
                         break
                     if m["status"] == "yellow":
                         group_status = "yellow"
+                    elif group_status == "disabled":
+                        group_status = "green"
                 print(f"\n{icons[group_status]} {group_label}")
                 for m in members:
                     print_row(m, indent="   ")

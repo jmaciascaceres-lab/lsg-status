@@ -48,6 +48,9 @@ Criterio de semáforo (configurable vía `.env`):
 | 🟢 Verde | HTTP 2xx/3xx y latencia < `LATENCY_WARN_MS` (300 ms por defecto) |
 | 🟡 Amarillo | HTTP 4xx, o 2xx con latencia ≥ `LATENCY_WARN_MS` |
 | 🔴 Rojo | HTTP 5xx, timeout, o error de conexión/DNS |
+| ⚪ Gris (`disabled`) | Servicio marcado con `"enabled": False` (o `*_ENABLED=false` en `.env`): no se hace petición HTTP. Se usa para servicios que todavía no exponen ningún endpoint público verificable — evita un falso amarillo/rojo por algo que está deshabilitado a propósito, no caído. No cuenta para el semáforo agregado (`overall` ni el estado de su `group`). |
+
+Actualmente en gris: `Vitrina API` y `Auth (Vitrina)` — sus servicios NestJS deshabilitan Swagger (`/docs`) con `NODE_ENV=production` y no exponen ningún otro endpoint público aún. Cuando agreguen uno (p.ej. `/health`), basta con actualizar la URL correspondiente en `.env` y poner `VITRINA_API_ENABLED=true` / `VITRINA_AUTH_ENABLED=true`, sin tocar código.
 
 ## 2. Estructura del repo
 

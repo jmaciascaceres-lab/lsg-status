@@ -74,12 +74,19 @@ VITRINA_SERVICES = [
         "label": os.getenv("VITRINA_API_LABEL", "Vitrina API"),
         "url": os.getenv("VITRINA_API_DOCS_URL", "https://vitrina.diinf.usach.cl/vitrina/api/v1/docs"),
         "group": VITRINA_GROUP_ID,
+        # Sin endpoint público verificable en producción todavía (Swagger deshabilitado
+        # con NODE_ENV=production). Se muestra en gris ("pendiente de integración") en
+        # vez de generar un falso amarillo por el 404 esperado. Cuando expongan un
+        # endpoint real (p.ej. /health), basta con VITRINA_API_ENABLED=true en .env.
+        "enabled": os.getenv("VITRINA_API_ENABLED", "false").lower() == "true",
     },
     {
         "id": "vitrina-auth",
         "label": os.getenv("VITRINA_AUTH_LABEL", "Auth (Vitrina)"),
         "url": os.getenv("VITRINA_AUTH_DOCS_URL", "https://vitrina.diinf.usach.cl/auth/api/v1/docs"),
         "group": VITRINA_GROUP_ID,
+        # Mismo caso que vitrina-api: sin endpoint público en producción todavía.
+        "enabled": os.getenv("VITRINA_AUTH_ENABLED", "false").lower() == "true",
     },
     {
         "id": "vitrina-cloud-website",
@@ -125,7 +132,7 @@ EXPERIMENT_TAG = os.getenv("EXPERIMENT_TAG", "lsg-status-monitor-v1")
 
 NOTIFY_CONSECUTIVE_THRESHOLD = int(os.getenv("NOTIFY_CONSECUTIVE_THRESHOLD", "2"))
 
-StatusLevel = Literal["green", "yellow", "red"]
+StatusLevel = Literal["green", "yellow", "red", "disabled"]
 
 app = FastAPI(title="LSG Status", version="1.0.0")
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
@@ -134,7 +141,25 @@ templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "t
 # Lógica de chequeo
 
 async def check_service(client: httpx.AsyncClient, service: dict) -> dict:
-    """Realiza un GET al endpoint /docs del servicio y clasifica su estado."""
+    """
+    Realiza un GET al endpoint del servicio y clasifica su estado. Si el
+    servicio tiene 'enabled': False (sin endpoint público verificable aún),
+    no se hace la petición HTTP: se devuelve 'disabled' directamente, para
+    no generar un falso amarillo/rojo por algo que no está listo a propósito.
+    """
+    if service.get("enabled") is False:
+        return {
+            "id": service["id"],
+            "label": service["label"],
+            "url": service["url"],
+            "group": service.get("group"),
+            "status": "disabled",
+            "status_code": None,
+            "latency_ms": None,
+            "error": None,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }
+
     start = time.perf_counter()
     status_level: StatusLevel
     status_code = None
@@ -179,10 +204,18 @@ async def check_service(client: httpx.AsyncClient, service: dict) -> dict:
 
 
 def worst_status(statuses: list[StatusLevel]) -> StatusLevel:
-    """Devuelve el peor estado de una lista (rojo > amarillo > verde)."""
-    if any(s == "red" for s in statuses):
+    """
+    Devuelve el peor estado de una lista (rojo > amarillo > verde). Los
+    servicios 'disabled' (sin endpoint verificable aún) se ignoran para este
+    cálculo: no deben ensuciar el semáforo agregado ni el overall general. Si
+    TODO el conjunto está deshabilitado, el agregado también es 'disabled'.
+    """
+    active = [s for s in statuses if s != "disabled"]
+    if not active:
+        return "disabled"
+    if any(s == "red" for s in active):
         return "red"
-    if any(s == "yellow" for s in statuses):
+    if any(s == "yellow" for s in active):
         return "yellow"
     return "green"
 
@@ -272,6 +305,9 @@ STATUS_LABEL_ES = {"red": "caído", "yellow": "degradado", "green": "operativo"}
 
 async def evaluate_and_notify(results: list[dict]) -> None:
     for r in results:
+        if r["status"] == "disabled":
+            continue
+
         state = _service_state.setdefault(
             r["id"], {"streak_status": None, "streak_count": 0, "notified_status": None}
         )
