@@ -162,7 +162,7 @@
   <div class="wrap">
     <header>
       <h1><span id="title-icon">⚪</span> LSG Status</h1>
-      <div class="subtitle">Semáforo de disponibilidad - LSG-Auth | LSG-Core-API</div>
+      <div class="subtitle">Semáforo de disponibilidad - LSG-Auth | LSG-Core-API | LSG-Estudio</div>
     </header>
 
     <div class="overall-banner" id="overall-banner">
@@ -184,7 +184,7 @@
     const overallDot = document.getElementById('overall-dot');
     const overallText = document.getElementById('overall-text');
     const titleIcon = document.getElementById('title-icon');
-const lastUpdated = document.getElementById('last-updated');
+    const lastUpdated = document.getElementById('last-updated');
 
     const STATUS_LABEL = { green: 'Operativo', yellow: 'Degradado', red: 'Caído' };
 
@@ -220,8 +220,8 @@ const lastUpdated = document.getElementById('last-updated');
         red: 'Uno o más servicios caídos',
       };
       const icons = { green: '🟢', yellow: '🟡', red: '🔴' };
-  overallText.textContent = labels[overall] ?? '—';
-  titleIcon.textContent = icons[overall] ?? '⚪';
+      overallText.textContent = labels[overall] ?? '—';
+      titleIcon.textContent = icons[overall] ?? '⚪';
     }
 
     async function poll() {

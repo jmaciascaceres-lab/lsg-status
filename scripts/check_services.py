@@ -36,6 +36,11 @@ SERVICES = [
         "label": os.getenv("CORE_API_LABEL", "LSG-Core-API"),
         "url": os.getenv("CORE_API_DOCS_URL", "https://lsg.diinf.usach.cl/lsg-core-api/docs"),
     },
+    {
+        "id": "lsg-estudio",
+        "label": os.getenv("ESTUDIO_LABEL", "LSG-Estudio"),
+        "url": os.getenv("ESTUDIO_DOCS_URL", "https://lsg.diinf.usach.cl/lsg-estudio/"),
+    },
 ]
 
 LATENCY_WARN_MS = float(os.getenv("LATENCY_WARN_MS", "300"))
