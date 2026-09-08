@@ -1,10 +1,10 @@
 # LSG Status - Semáforo de servicios
 
-Mini-servicio (FastAPI) que monitorea en tiempo real la disponibilidad de `LSG-Auth` y `LSG-Core-API`, mostrando un dashboard tipo semáforo (🟢/🟡/🔴) y exponiendo un endpoint JSON consumible por scripts de monitoreo, Ansible o dashboards externos.
+Mini-servicio (FastAPI) que monitorea en tiempo real la disponibilidad de `LSG-Auth`, `LSG-Core-API` y `LSG-Estudio`, mostrando un dashboard tipo semáforo (🟢/🟡/🔴) y exponiendo un endpoint JSON consumible por scripts de monitoreo, Ansible o dashboards externos.
 
 > **Baseline:** este proyecto es complementario a los servicios productivos definidos en la propuesta de tesis y la nota técnica LSG (pipeline sensores → perfil → motor de reglas → adaptadores). No modifica ni reemplaza `LSG-Auth` / `LSG-Core-API`; solo los observa desde afuera vía sus endpoints `/docs` (Swagger UI / OpenAPI).
 
-**Versión:** 1.0
+**Versión:** 1.1
 
 ## 1. Servicios monitoreados
 
@@ -12,6 +12,7 @@ Mini-servicio (FastAPI) que monitorea en tiempo real la disponibilidad de `LSG-A
 | --- | --- | --- |
 | LSG-Auth | `https://lsg.diinf.usach.cl/lsg-auth/docs` | `GET` |
 | LSG-Core-API | `https://lsg.diinf.usach.cl/lsg-core-api/docs` | `GET` |
+| LSG-Estudio | `https://lsg.diinf.usach.cl/lsg-estudio/` | `GET` |
 
 Criterio de semáforo (configurable vía `.env`):
 
@@ -90,6 +91,16 @@ Ejemplo de respuesta de `/api/status`:
       "id": "lsg-core-api",
       "label": "LSG-Core-API",
       "url": "https://lsg.diinf.usach.cl/lsg-core-api/docs",
+      "status": "green",
+      "status_code": 200,
+      "latency_ms": 98.7,
+      "error": null,
+      "checked_at": "2026-06-30T15:04:02.203Z"
+    },
+    {
+      "id": "lsg-estudio",
+      "label": "LSG-Estudio",
+      "url": "https://lsg.diinf.usach.cl/lsg-estudio/",
       "status": "green",
       "status_code": 200,
       "latency_ms": 98.7,
