@@ -207,6 +207,12 @@ Ejemplo de cron (cada 5 minutos, log a archivo):
 **Features:**
 - **`lsg-status`** - Se agregó el servicio Vitrina (LSG-Web) al semáforo.
 
+### v1.2.1 (2026-09-09)
+
+**Features:**
+- **`lsg-status`** - Se agregó el servicio de Grupo Vitrina al semáforo.
+- **`lsg-status`** - Se actualizó el semáforo para que los servicios deshabilitados se muestren en gris (⚪).
+
 ---
 
 ## Referencias
